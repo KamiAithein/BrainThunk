@@ -11,17 +11,17 @@ simulateProgram program = do program' <- program
                              let program'' = transitionState program'
                             --  putStrLn $ show $ program''
                              case program'' of
-                                 (sm, cm, Running, ob, ib) -> do putStr ob
-                                                                 hFlush stdout
-                                                                 simulateProgram $ return (sm, cm, Running, [], ib)
-                                 (sm, cm, Input,   ob, ib) -> do putStr ">"
-                                                                 hFlush stdout
-                                                                 eof <- isEOF
-                                                                 if eof
-                                                                     then simulateProgram $ return (sm, cm, Running, ob, ib ++ "\0")
-                                                                     else do 
-                                                                         input <- getLine
-                                                                         simulateProgram $ return (sm, cm, Running, ob, ib ++ input ++ "\n")
+                                 (tm, Running, ob, ib) -> do putStr ob
+                                                             hFlush stdout
+                                                             simulateProgram $ return (tm, Running, [], ib)
+                                 (tm, Input,   ob, ib) -> do putStr ">"
+                                                             hFlush stdout
+                                                             eof <- isEOF
+                                                             if eof
+                                                                 then simulateProgram $ return (tm, Running, ob, ib ++ "\0")
+                                                                 else do 
+                                                                     input <- getLine
+                                                                     simulateProgram $ return (tm, Running, ob, ib ++ input ++ "\n")
                                  _ -> return program'' 
 
 run :: String -> IO ProgramState
