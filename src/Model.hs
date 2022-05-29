@@ -6,8 +6,6 @@ module Model
         Tape(..),
         TapeSymbol(..),
         transitionState,
-        stateMachine,
-        commandMachine,
         initializeTape,
         initializeProgram,
         emptyProgram,
@@ -28,8 +26,8 @@ maxVal = 255
 
 data Tape a = Tape [a] a [a]
 
-instance Show (Tape a) where
-   show (Tape l p r) = "(" ++ (show take 5 l) ++ show p ++ (show take 5 r) ++ ")" 
+instance Show a => Show (Tape a) where
+   show (Tape l p r) = "(" ++ (show $ take 5 l) ++ show p ++ (show $ take 5 r) ++ ")" 
 
 infiniteListOf :: a -> [a]
 infiniteListOf x = iterate id x
@@ -79,6 +77,7 @@ data TapeSymbol a = TapeSymbol a deriving Show
 instance Functor (TapeSymbol) where
     fmap f (TapeSymbol g) = TapeSymbol $ f g 
  
+ -- command tape, then state tapes
 data TuringMachine = TuringMachine [(Tape (TapeSymbol Int))] 
 instance Show TuringMachine where
     show (TuringMachine tapes) = "Turing Machine: (" ++ show tapes ++ ")"
@@ -138,7 +137,7 @@ transitionINC (TuringMachine (ct:st:sts), status, ob, ib) = (TuringMachine (ct:(
 -- decrement
 transitionDEC :: ProgramState -> ProgramState
 transitionDEC (TuringMachine (ct:st:sts), status, ob, ib) = (TuringMachine (ct:(transitionDEC' st):sts), status, ob, ib)
-    where transitionDEC' t = (writeTape t) . fmap (subOneClamped) . readTape) t
+    where transitionDEC' t = ((writeTape t) . fmap (subOneClamped) . readTape) t
           subOneClamped v | v == 0    = maxVal
                           | otherwise = v - 1
 -- record
@@ -160,30 +159,30 @@ transitionJOZ state@(TuringMachine (ct:(Tape l (TapeSymbol 0) r):sts), _, _, _) 
           transitionJOZ' state@(TuringMachine (ct:(Tape _ (TapeSymbol 93{-]-}) _):sts), _, _, _) 1 = state
 
           transitionJOZ'       (TuringMachine (ct:st@(Tape _ (TapeSymbol 93{-]-}) _):sts), status, ob, ib) count  = 
-              transitionJOZ' (TuringMachine ((moveHeadRight ct):st:sts), status, ob, ib) (count-1)
+              transitionJOZ'   (TuringMachine ((moveHeadRight ct):st:sts), status, ob, ib) (count-1)
 
           transitionJOZ'       (TuringMachine (ct:st:sts), status, ob, ib)                                 count = 
-              transitionJOZ' (TuringMachine ((moveHeadRight ct):st:sts), status, ob, ib) count
+              transitionJOZ'   (TuringMachine ((moveHeadRight ct):st:sts), status, ob, ib) count
 transitionJOZ state = state
 
 
 --Still have to update JNZ and below
 -- jump not zero
 transitionJNZ :: ProgramState -> ProgramState
-transitionJNZ state@(TuringMachine (Tape l (TapeSymbol 0) r), _, _, _, _) = state
+transitionJNZ state@(TuringMachine (ct:(Tape l (TapeSymbol 0) r):sts), status, ob, ib) = state
 transitionJNZ state = transitionJNZ' state 0 
-    where transitionJNZ' (sm, cm, status, ob, ib) count | count < 0 = (sm, cm, Error, ob, ib) 
+    where transitionJNZ' (tm, status, ob, ib) count | count < 0 = (tm, Error, ob, ib) 
 
-          transitionJNZ'       (sm, TuringMachine t@(Tape _ (TapeSymbol 93{-]-}) _), status, ob, ib) count = 
-                transitionJNZ' (sm, (TuringMachine $ moveHeadLeft t), status, ob, ib) (count+1)
+          transitionJNZ'       (TuringMachine (t@(Tape _ (TapeSymbol 93{-]-}) _):st:sts), status, ob, ib) count = 
+                transitionJNZ' ((TuringMachine ((moveHeadLeft t):st:sts)), status, ob, ib) (count+1)
 
-          transitionJNZ' state@(_, (TuringMachine   (Tape _ (TapeSymbol 91{-[-}) _)), _, _, _) 1 = state
+          transitionJNZ' state@(TuringMachine (t@(Tape _ (TapeSymbol 91{-[-}) _):st:sts), _, _, _) 1 = state
 
-          transitionJNZ'       (sm, (TuringMachine t@(Tape _ (TapeSymbol 91{-[-}) _)), status, ob, ib) count  = 
-              transitionJNZ' (sm, (TuringMachine $ moveHeadLeft t), status, ob, ib) (count-1)
+          transitionJNZ'       (TuringMachine (t@(Tape _ (TapeSymbol 91{-[-}) _):st:sts), status, ob, ib) count  = 
+              transitionJNZ'   (TuringMachine  ((moveHeadLeft t):st:sts), status, ob, ib) (count-1)
 
-          transitionJNZ'       (sm, (TuringMachine t), status, ob, ib)                                 count = 
-              transitionJNZ' (sm, (TuringMachine $ moveHeadLeft t), status, ob, ib) count
+          transitionJNZ'       (TuringMachine (ct:st:sts), status, ob, ib)                              count = 
+              transitionJNZ'   (TuringMachine ((moveHeadLeft ct):st:sts), status, ob, ib) count
 
 transitionSTP :: ProgramState -> ProgramState
 transitionSTP (tm, status, ob, ib) = (tm, Stopped, ob, ib)
@@ -207,7 +206,7 @@ liftCommandChar tok =
         Nothing         -> id
 
 liftCommandTM :: TuringMachine -> (ProgramState -> ProgramState)
-liftCommandTM (TuringMachine t:ts) = liftCommandChar (currentTok $ readTape t)
+liftCommandTM (TuringMachine (t:ts)) = liftCommandChar (currentTok $ readTape t)
     where currentTok (TapeSymbol sym) = chr sym
 
 
