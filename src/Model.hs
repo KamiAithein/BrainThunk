@@ -26,7 +26,10 @@ someFunc = putStrLn $ show $ take 3 $ infiniteListOf 0
 maxVal :: Int
 maxVal = 255
 
-data Tape a = Tape [a] a [a] deriving Show
+data Tape a = Tape [a] a [a]
+
+instance Show (Tape a) where
+   show (Tape l p r) = "(" ++ (show take 5 l) ++ show p ++ (show take 5 r) ++ ")" 
 
 infiniteListOf :: a -> [a]
 infiniteListOf x = iterate id x
@@ -76,12 +79,12 @@ data TapeSymbol a = TapeSymbol a deriving Show
 instance Functor (TapeSymbol) where
     fmap f (TapeSymbol g) = TapeSymbol $ f g 
  
-data TuringMachine = TuringMachine (Tape (TapeSymbol Int)) 
+data TuringMachine = TuringMachine [(Tape (TapeSymbol Int))] 
 instance Show TuringMachine where
-    show (TuringMachine (Tape l p r)) = "{l: " ++ (show $ take 3 l) ++ ", p: " ++ show p ++ ", r: " ++ (show $ take 3 r) ++ "}"
+    show (TuringMachine tapes) = "Turing Machine: (" ++ show tapes ++ ")"
 
-initializeTM :: Tape (TapeSymbol Int) -> TuringMachine
-initializeTM t = TuringMachine t
+initializeTM :: [Tape (TapeSymbol Int)] -> TuringMachine
+initializeTM ts = TuringMachine ts
 
 -- BF brain
 -- transitionTM :: TuringMachine -> TuringMachine
@@ -102,67 +105,69 @@ data ProgramStatus = Ready | Init | Running | Stopped | Error | Input deriving S
 type OutputBuffer = String
 type InputBuffer  = String
 
-type ProgramState = (TuringMachine,      -- State   Machine
-                     TuringMachine,      -- Command Machine
+type ProgramState = (TuringMachine, --Command Tape, State Tapes
                      ProgramStatus,
                      OutputBuffer,
                      InputBuffer)      
 
 initializeProgram :: Tape (TapeSymbol Int) -> ProgramState
-initializeProgram commandTape = (initializeTM $ initializeTape $ TapeSymbol 0, initializeTM $ commandTape, Ready, [], [])
+--make infinite tapes!!
+initializeProgram commandTape = (initializeTM $ [commandTape, initializeTape $ TapeSymbol 0], Ready, [], [])
 
 emptyProgram :: ProgramState
-emptyProgram = (initializeTM $ initializeTape $ TapeSymbol 0,
-                initializeTM $ initializeTape $ TapeSymbol 0,
+emptyProgram = (initializeTM [initializeTape $ TapeSymbol 0,
+                              initializeTape $ TapeSymbol 0],
                 Ready,
                 [], []) 
-
+{- This does not take infinite tapes into account: They may exist with this implementation but no way to access
+        Ideally we would implement a map solution for "indexing" into some tapes -}
 -- move right
 transitionMVR :: ProgramState -> ProgramState
-transitionMVR (sm, cm, status, ob, ib) = (transitionMVR' sm, cm, status, ob, ib)
-    where transitionMVR' (TuringMachine t) = (TuringMachine $ moveHeadRight t)
+transitionMVR (TuringMachine (ct:st:sts), status, ob, ib) = (TuringMachine (ct:(transitionMVR' st):sts) , status, ob, ib)
+    where transitionMVR' t = moveHeadRight t
 -- move left
 transitionMVL :: ProgramState -> ProgramState
-transitionMVL (sm, cm, status, ob, ib) = (transitionMVL' sm, cm, status, ob, ib)
-    where transitionMVL' (TuringMachine t) = (TuringMachine $ moveHeadLeft t)
+transitionMVL (TuringMachine (ct:st:sts), status, ob, ib) = (TuringMachine (ct:(transitionMVL' st):sts), status, ob, ib)
+    where transitionMVL' t = moveHeadLeft t
 -- increment
 transitionINC :: ProgramState -> ProgramState
-transitionINC (sm, cm, status, ob, ib) = (transitionINC' sm, cm, status, ob, ib)
-    where transitionINC' (TuringMachine t) = (TuringMachine $ ((writeTape t) . fmap (addOneClamped) . readTape) t)
+transitionINC (TuringMachine (ct:st:sts), status, ob, ib) = (TuringMachine (ct:(transitionINC' st):sts), status, ob, ib)
+    where transitionINC' t = ((writeTape t) . fmap (addOneClamped) . readTape) t
           addOneClamped v | v == maxVal  = 0
                           | otherwise = v + 1
 -- decrement
 transitionDEC :: ProgramState -> ProgramState
-transitionDEC (sm, cm, status, ob, ib) = (transitionDEC' sm, cm, status, ob, ib)
-    where transitionDEC' (TuringMachine t) = (TuringMachine $ ((writeTape t) . fmap (subOneClamped) . readTape) t)
+transitionDEC (TuringMachine (ct:st:sts), status, ob, ib) = (TuringMachine (ct:(transitionDEC' st):sts), status, ob, ib)
+    where transitionDEC' t = (writeTape t) . fmap (subOneClamped) . readTape) t
           subOneClamped v | v == 0    = maxVal
                           | otherwise = v - 1
 -- record
 transitionREC :: ProgramState -> ProgramState
-transitionREC (sm@(TuringMachine t), cm, status, ob, ib) = (sm, cm, status, ob ++ (symbolize $ readTape t), ib)
+transitionREC (TuringMachine (ct:st:sts), status, ob, ib) = (TuringMachine (ct:st:sts), status, ob ++ (symbolize $ readTape st), ib)
     where symbolize (TapeSymbol s) = [chr s]
 -- replace
 transitionREP :: ProgramState -> ProgramState
-transitionREP (sm, cm, status, ob, [])   = (sm, cm, Input, ob, [])
-transitionREP (sm@(TuringMachine t, cm, status, ob, i:is)) = (TuringMachine $ writeTape t $ TapeSymbol $ ord i, cm, Running, ob, is)
+transitionREP (tm, status, ob, [])   = (tm, Input, ob, [])
+transitionREP (TuringMachine (ct:st:sts), status, ob, i:is) = (TuringMachine (ct:(writeTape st $ TapeSymbol $ ord i):sts), Running, ob, is)
 
 -- jump on zero
 transitionJOZ :: ProgramState -> ProgramState
-transitionJOZ state@(TuringMachine (Tape l (TapeSymbol 0) r), _, _, _, _) = transitionJOZ' state 0
-    where transitionJOZ' (sm, cm, status, ob, ib) count | count < 0 = (sm, cm, Error, ob, ib)
-          transitionJOZ'       (sm, TuringMachine t@(Tape _ (TapeSymbol 91{-[-}) _), status, ob, ib) count = 
-                transitionJOZ' (sm, (TuringMachine $ moveHeadRight t), status, ob, ib) (count+1)
+transitionJOZ state@(TuringMachine (ct:(Tape l (TapeSymbol 0) r):sts), _, _, _) = transitionJOZ' state 0
+    where transitionJOZ' (tm, status, ob, ib) count | count < 0 = (tm, Error, ob, ib)
+          transitionJOZ'       (TuringMachine (ct:st@(Tape _ (TapeSymbol 91{-[-}) _):sts), status, ob, ib) count = 
+                transitionJOZ' (TuringMachine ((moveHeadRight ct):st:sts), status, ob, ib) (count+1)
 
-          transitionJOZ' state@(_, (TuringMachine   (Tape _ (TapeSymbol 93{-]-}) _)), _, _, _) 1 = state
+          transitionJOZ' state@(TuringMachine (ct:(Tape _ (TapeSymbol 93{-]-}) _):sts), _, _, _) 1 = state
 
-          transitionJOZ'       (sm, (TuringMachine t@(Tape _ (TapeSymbol 93{-]-}) _)), status, ob, ib) count  = 
-              transitionJOZ' (sm, (TuringMachine $ moveHeadRight t), status, ob, ib) (count-1)
+          transitionJOZ'       (TuringMachine (ct:st@(Tape _ (TapeSymbol 93{-]-}) _):sts), status, ob, ib) count  = 
+              transitionJOZ' (TuringMachine ((moveHeadRight ct):st:sts), status, ob, ib) (count-1)
 
-          transitionJOZ'       (sm, (TuringMachine t), status, ob, ib)                                 count = 
-              transitionJOZ' (sm, (TuringMachine $ moveHeadRight t), status, ob, ib) count
+          transitionJOZ'       (TuringMachine (ct:st:sts), status, ob, ib)                                 count = 
+              transitionJOZ' (TuringMachine ((moveHeadRight ct):st:sts), status, ob, ib) count
 transitionJOZ state = state
 
 
+--Still have to update JNZ and below
 -- jump not zero
 transitionJNZ :: ProgramState -> ProgramState
 transitionJNZ state@(TuringMachine (Tape l (TapeSymbol 0) r), _, _, _, _) = state
@@ -181,7 +186,7 @@ transitionJNZ state = transitionJNZ' state 0
               transitionJNZ' (sm, (TuringMachine $ moveHeadLeft t), status, ob, ib) count
 
 transitionSTP :: ProgramState -> ProgramState
-transitionSTP (sm, cm, status, ob, ib) = (sm, cm, Stopped, ob, ib)
+transitionSTP (tm, status, ob, ib) = (tm, Stopped, ob, ib)
 
 commandsMap :: [(Char, ProgramState -> ProgramState)]
 commandsMap = [('>',    transitionMVR),
@@ -202,27 +207,27 @@ liftCommandChar tok =
         Nothing         -> id
 
 liftCommandTM :: TuringMachine -> (ProgramState -> ProgramState)
-liftCommandTM (TuringMachine t) = liftCommandChar (currentTok $ readTape t)
+liftCommandTM (TuringMachine t:ts) = liftCommandChar (currentTok $ readTape t)
     where currentTok (TapeSymbol sym) = chr sym
 
 
 
-stateMachine :: ProgramState -> TuringMachine
-stateMachine (sm, _, _, _, _) = sm
+-- stateMachine :: ProgramState -> TuringMachine
+-- stateMachine (sm, _, _, _, _) = sm
 
-commandMachine :: ProgramState -> TuringMachine
-commandMachine (_, cm, _, _, _) = cm
+-- commandMachine :: ProgramState -> TuringMachine
+-- commandMachine (_, cm, _, _, _) = cm
 
 {-
     1. Retrieve the command from the command machine
     2. Run the command on the state machine
 -}
 transitionState :: ProgramState -> ProgramState
-transitionState ps@(_, _, Error, _, _) = ps
+transitionState ps@(_, Error, _, _) = ps
 -- need to do more error handling with the status
-transitionState (sm, cm@(TuringMachine t), status, ob, ib) = handleTransition $ (liftCommandTM cm) (sm, cm, Running, ob, ib) 
-    where handleTransition state@(_, _, Input, _, _)   = state
-          handleTransition state@(_, _, Stopped, _, _) = state
-          handleTransition (sm, TuringMachine t, _, ob, ib) = (sm, TuringMachine $ moveHeadRight t, Running, ob, ib)
+transitionState (tm, status, ob, ib) = handleTransition $ (liftCommandTM tm) (tm, Running, ob, ib) 
+    where handleTransition state@(_, Input, _, _)   = state
+          handleTransition state@(_, Stopped, _, _) = state
+          handleTransition (TuringMachine (ct:ts), _, ob, ib) = (TuringMachine ((moveHeadRight ct):ts), Running, ob, ib)
           handleTransition _ = undefined
 
