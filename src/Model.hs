@@ -20,7 +20,11 @@ module Model
         dot,
         jnz,
         end,
-        comma      
+        comma,
+        inc,
+        dec,
+        mvl,
+        mvr
     ) where
 
 import Data.Char
@@ -116,8 +120,8 @@ comma  (tm, state, ob, []) =
                 input <- getLine
                 comma (tm, Running, ob, input ++ "\n")
 joz :: Int -> ProgramState -> IO ProgramState
-joz i' (TuringMachine (i, cta) (t@(Tape l (TapeSymbol 0) r):ts), Running, ob, ib) = 
-    return (TuringMachine (i', cta)  (ts), Running, ob, ib)
+joz i' (TuringMachine (i, cta) (t@(Tape l (TapeSymbol 0) r):ts), state, ob, ib) = 
+    return (TuringMachine (i', cta)  (t:ts), state, ob, ib)
 
 joz _  (TuringMachine (i, cta) (ts), state, ob, ib) = 
     return (TuringMachine (i+1, cta) (ts), state,   ob, ib)
@@ -127,19 +131,38 @@ dot    (TuringMachine (i, cta) (t:ts), state,  ob, ib) =
     do  let TapeSymbol s = readTape t
         putStr $ [chr s]
         hFlush stdout
-        return (TuringMachine (i+1, cta) (ts), state, ob, ib)
+        return (TuringMachine (i+1, cta) (t:ts), state, ob, ib)
 
 jnz :: Int -> ProgramState -> IO ProgramState
 jnz _  (TuringMachine (i, cta) (t@(Tape l (TapeSymbol 0) r):ts), state, ob, ib) = 
-    return (TuringMachine (i+1, cta) (ts), state,   ob, ib)    
+    return (TuringMachine (i+1, cta) (t:ts), state,   ob, ib)    
 
-jnz i' (TuringMachine (i, cta) (ts), Running, ob, ib) = 
-    return (TuringMachine (i',  cta) (ts), Running, ob, ib)
+jnz i' (TuringMachine (i, cta) (ts), state, ob, ib) = 
+    return (TuringMachine (i',  cta) (ts), state, ob, ib)
 
 end :: ProgramState -> IO ProgramState
-end    (TuringMachine (i, cta) (ts), Running, ob, ib) =
+end    (TuringMachine (i, cta) (ts), state, ob, ib) =
     return (TuringMachine (i,   cta) (ts), Stopped, ob, ib)
 
+inc :: ProgramState -> IO ProgramState
+inc    (TuringMachine (i, cta) ((Tape l p r):ts), state, ob, ib) = 
+    return (TuringMachine (i+1,   cta) ((Tape l (fmap (clampedInc) p) r):ts), state, ob, ib)
+    where clampedInc 255 = 0
+          clampedInc i = i + 1
+
+dec :: ProgramState -> IO ProgramState
+dec    (TuringMachine (i, cta) ((Tape l p r):ts), state, ob, ib) = 
+    return (TuringMachine (i+1,   cta) ((Tape l (fmap (clampedDec) p) r):ts), state, ob, ib)
+    where clampedDec 0 = 255
+          clampedDec i = i - 1
+
+mvl :: ProgramState -> IO ProgramState
+mvl (TuringMachine (i, cta) (t:ts), state, ob, ib) =
+    return (TuringMachine (i+1,   cta) ((moveHeadLeft t):ts), state, ob, ib)
+
+mvr :: ProgramState -> IO ProgramState
+mvr (TuringMachine (i, cta) (t:ts), state, ob, ib) =
+    return (TuringMachine (i+1,   cta) ((moveHeadRight t):ts), state, ob, ib)
 
 
 data ProgramStatus = Ready | Init | Running | Stopped | Error | Input deriving Show
