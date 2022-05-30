@@ -21,7 +21,9 @@ commandTokens = S.fromList [',',
                             '<',
                             '>',
                             '+',
-                            '-']
+                            '-',
+                            '\'', --up
+                            ';'] --down
 
 data CommandSub = Comma
                     | Dot
@@ -29,17 +31,21 @@ data CommandSub = Comma
                     | Dec
                     | Mvr
                     | Mvl
+                    | Mvu
+                    | Mvd
                     | End
                     | Jnz Int
                     | Joz Int deriving (Eq, Show)
                     
 simpleCommandsSubMap :: [(TapeSymbol Char, CommandSub)]
-simpleCommandsSubMap = [(TapeSymbol ',', Comma),
-                        (TapeSymbol '.', Dot  ),
-                        (TapeSymbol '+', Inc  ),
-                        (TapeSymbol '-', Dec  ),
-                        (TapeSymbol '>', Mvr  ),
-                        (TapeSymbol '<', Mvl  )]
+simpleCommandsSubMap = [(TapeSymbol ',',  Comma),
+                        (TapeSymbol '.',  Dot  ),
+                        (TapeSymbol '+',  Inc  ),
+                        (TapeSymbol '-',  Dec  ),
+                        (TapeSymbol '>',  Mvr  ),
+                        (TapeSymbol '<',  Mvl  ),
+                        (TapeSymbol '\'', Mvu  ),
+                        (TapeSymbol ';',  Mvd  )]
 
 commandsMap :: [(CommandSub, (ProgramState -> IO ProgramState))]
 commandsMap = [(Comma, (comma)),
@@ -48,6 +54,8 @@ commandsMap = [(Comma, (comma)),
                (Dec,   (dec  )),
                (Mvr,   (mvr  )),
                (Mvl,   (mvl  )),
+               (Mvu,   (mvu  )),
+               (Mvd,   (mvd  )),
                (End,   (end  ))]
 
 genCommandTape :: [TapeSymbol Char] -> CommandTape Int
