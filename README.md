@@ -2,7 +2,17 @@
 A BrainF*** interpreter written in Haskell
 
 This interpreter implements BrainF*** with two tapes: A Command Tape and a State Tape.
-No optimizations are done
+The Command Tape is represented as a Graph G(V,E) where V = (i, cmd) where each node is representative of a command character in the source code file, and there exists an edge for every valid jump in the source code.
+
+For example, Echo:
+
+src.bf: `,[.,]`
+
+representation: 
+
+    V:{(0, ','), (1, '['), (2, '.'), (3, ','), (4, ']'), (5, END)}
+    E:{(0, 1), (1, 2), (1, 4), (2, 3), (3, 4), (4, 5), (4, 1)}
+
 
 ## Running:
 The interpreter takes in one command line option: Either the file name, or `repl`. If a file name is given then the file is run through the interpreter, otherwise if `repl` is entered then *repl* mode is activated.
@@ -18,17 +28,15 @@ This is an 8-Bit Two Tape implementation of BrainF***. EOF is interpreted as a n
 
 More formally: 
 
-The program state is represented by `(S, C, status, OB, IB)` where S and C are Turing Machines representing the State and Command logic respectively. In hindsight it would have made more sense to have one Turing Machine with two tapes, maybe something to work on in the future. OB and IB are strings representing the Output Buffer and Input Buffer.
+The program state is represented by `(TM, status, OB, IB)` TM is a Turing Machine representing the State and Command logic. OB and IB are strings representing the Output Buffer and Input Buffer.
 
-S and C are formal Turing Machines, that is to say that they both have "infinite" size to the left and right of the head position where all values are initialized as 0. 
+TM is formal Turing Machines, that is to say that they both have "infinite" size to the left and right of the head position where all values are initialized as 0. 
 
 The "infinite" tape is implemented with two stacks, L and R with a head position, so the tape is only as infinite as your memory.
 
 Technically this interpreter is 8-Bit as I clamp values out of range to stay within range, although that is arbitrary and is set by maxValue in "Model.hs"
 
 ## Future:
-I would like to optimize at the very least the jump procedures: It takes _O(n)_ time to find the "matching" bracket for any jump, where _n_ is the length of the tape. Since we have an "infinite" tape, this can hang. It would be optimal to preprocess the BrainF*** program and almost create "edges" between the brackets and their matching values. This would also remove the possibility of hanging by searching for an unmatched bracket as we could just return an error.
+I have optimized the interpreter to essentially compile the source code to a graph representation, at this point it would not be too difficult to translate this intermediate language into assembly and simply have a binary.
 
-A more abstract representation of the command tape would be helpful in this regard: A formal Turing Machine representation can only move right or left, and doesn't have the ability to jump between arbitrary points of memory. I can easily see a Graph representation being useful: The Command Tape is a form of ROM so we can process the BF program into a graph G(V, E) s.t. forall v. in V: v = (OP, ID) where OP is some BF operator and ID is a unique ID for the node, and forall. e in E: e = (j, (u,w)) where u,w in V and j in {JUMP, NEXT}
-
-On a Jump command the interpreter would see that there are two possible paths, "JUMP" and "NEXT" and would decide to jump or not based on the value of the State Tape.
+I would like to create a more expansive language that is an extension of BrainF*** that does not have a tape value limit and has the ability to move between tapes.
