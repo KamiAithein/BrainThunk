@@ -63,5 +63,3 @@ The "infinite" tape is implemented with two stacks, L and R with a head position
 
 ## Future:
 I have optimized the interpreter to essentially compile the source code to a graph representation, at this point it would not be too difficult to translate this intermediate language into assembly and simply have a binary.
-
-I would like to create a more expansive language that is an extension of BrainF*** that does not have a tape value limit and has the ability to move between tapes.
