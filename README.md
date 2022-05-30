@@ -28,7 +28,7 @@ This is an 8-Bit Two Tape implementation of BrainF***. EOF is interpreted as a n
 
 More formally: 
 
-The program state is represented by `(TM, status, OB, IB)` TM is a Turing Machine representing the State and Command logic. OB and IB are strings representing the Output Buffer and Input Buffer.
+The program state is represented by `(TM, status, IB)` TM is a Turing Machine representing the State and Command logic. IB is a string representing the Input Buffer.
 
 TM is formal Turing Machines, that is to say that they both have "infinite" size to the left and right of the head position where all values are initialized as 0. 
 

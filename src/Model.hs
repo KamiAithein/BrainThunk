@@ -107,89 +107,87 @@ initializeTM :: (CommandTape Int) -> [Tape (TapeSymbol Int)] -> TuringMachine
 initializeTM ct ts = TuringMachine ct ts
 
 comma :: ProgramState -> IO ProgramState
-comma  (TuringMachine (i, cta) (t:ts), state,  ob, ib:ibs) =
-    return (TuringMachine (i+1, cta) ((writeTape t $ TapeSymbol $ ord ib):ts), state, ob, ibs)
+comma  (TuringMachine (i, cta) (t:ts), state,   ib:ibs) =
+    return (TuringMachine (i+1, cta) ((writeTape t $ TapeSymbol $ ord ib):ts), state,  ibs)
     
-comma  (tm, state, ob, []) = 
+comma  (tm, state,  []) = 
     do  putStr ">"
         hFlush stdout
         eof <- isEOF
         if eof
-            then comma (tm, Running, ob, "\0")
+            then comma (tm, Running,  "\0")
             else do 
                 input <- getLine
-                comma (tm, Running, ob, input ++ "\n")
+                comma (tm, Running,  input ++ "\n")
 joz :: Int -> ProgramState -> IO ProgramState
-joz i' (TuringMachine (i, cta) (t@(Tape l (TapeSymbol 0) r):ts), state, ob, ib) = 
-    return (TuringMachine (i', cta)  (t:ts), state, ob, ib)
+joz i' (TuringMachine (i, cta) (t@(Tape l (TapeSymbol 0) r):ts), state,  ib) = 
+    return (TuringMachine (i', cta)  (t:ts), state,  ib)
 
-joz _  (TuringMachine (i, cta) (ts), state, ob, ib) = 
-    return (TuringMachine (i+1, cta) (ts), state,   ob, ib)
+joz _  (TuringMachine (i, cta) (ts), state,  ib) = 
+    return (TuringMachine (i+1, cta) (ts), state,    ib)
 
 dot :: ProgramState -> IO ProgramState
-dot    (TuringMachine (i, cta) (t:ts), state,  ob, ib) =
+dot    (TuringMachine (i, cta) (t:ts), state,   ib) =
     do  let TapeSymbol s = readTape t
         putStr $ [chr s]
         hFlush stdout
-        return (TuringMachine (i+1, cta) (t:ts), state, ob, ib)
+        return (TuringMachine (i+1, cta) (t:ts), state,  ib)
 
 jnz :: Int -> ProgramState -> IO ProgramState
-jnz _  (TuringMachine (i, cta) (t@(Tape l (TapeSymbol 0) r):ts), state, ob, ib) = 
-    return (TuringMachine (i+1, cta) (t:ts), state,   ob, ib)    
+jnz _  (TuringMachine (i, cta) (t@(Tape l (TapeSymbol 0) r):ts), state,  ib) = 
+    return (TuringMachine (i+1, cta) (t:ts), state,    ib)    
 
-jnz i' (TuringMachine (i, cta) (ts), state, ob, ib) = 
-    return (TuringMachine (i',  cta) (ts), state, ob, ib)
+jnz i' (TuringMachine (i, cta) (ts), state,  ib) = 
+    return (TuringMachine (i',  cta) (ts), state,  ib)
 
 end :: ProgramState -> IO ProgramState
-end    (TuringMachine (i, cta) (ts), state, ob, ib) =
-    return (TuringMachine (i,   cta) (ts), Stopped, ob, ib)
+end    (TuringMachine (i, cta) (ts), state,  ib) =
+    return (TuringMachine (i,   cta) (ts), Stopped,  ib)
 
 inc :: ProgramState -> IO ProgramState
-inc    (TuringMachine (i, cta) ((Tape l p r):ts), state, ob, ib) = 
-    return (TuringMachine (i+1,   cta) ((Tape l (fmap (clampedInc) p) r):ts), state, ob, ib)
+inc    (TuringMachine (i, cta) ((Tape l p r):ts), state,  ib) = 
+    return (TuringMachine (i+1,   cta) ((Tape l (fmap (clampedInc) p) r):ts), state,  ib)
     where clampedInc 255 = 0
           clampedInc i = i + 1
 
 dec :: ProgramState -> IO ProgramState
-dec    (TuringMachine (i, cta) ((Tape l p r):ts), state, ob, ib) = 
-    return (TuringMachine (i+1,   cta) ((Tape l (fmap (clampedDec) p) r):ts), state, ob, ib)
+dec    (TuringMachine (i, cta) ((Tape l p r):ts), state,  ib) = 
+    return (TuringMachine (i+1,   cta) ((Tape l (fmap (clampedDec) p) r):ts), state,  ib)
     where clampedDec 0 = 255
           clampedDec i = i - 1
 
 mvl :: ProgramState -> IO ProgramState
-mvl (TuringMachine (i, cta) (t:ts), state, ob, ib) =
-    return (TuringMachine (i+1,   cta) ((moveHeadLeft t):ts), state, ob, ib)
+mvl (TuringMachine (i, cta) (t:ts), state,  ib) =
+    return (TuringMachine (i+1,   cta) ((moveHeadLeft t):ts), state,  ib)
 
 mvr :: ProgramState -> IO ProgramState
-mvr (TuringMachine (i, cta) (t:ts), state, ob, ib) =
-    return (TuringMachine (i+1,   cta) ((moveHeadRight t):ts), state, ob, ib)
+mvr (TuringMachine (i, cta) (t:ts), state,  ib) =
+    return (TuringMachine (i+1,   cta) ((moveHeadRight t):ts), state,  ib)
 
 
 data ProgramStatus = Ready | Init | Running | Stopped | Error | Input deriving Show
 
-type OutputBuffer = String
 type InputBuffer  = String
 
 type ProgramState = (TuringMachine, --Command Tape, State Tapes
                      ProgramStatus,
-                     OutputBuffer,
                      InputBuffer)      
 
 initializeProgram :: (CommandTape Int) -> ProgramState
 --make infinite tapes!!
-initializeProgram ct = ((initializeTM ct $ infiniteListOf $ initializeTape $ TapeSymbol 0), Ready, [], [])
+initializeProgram ct = ((initializeTM ct $ infiniteListOf $ initializeTape $ TapeSymbol 0), Ready, [])
 
 emptyProgram :: ProgramState
 emptyProgram = (initializeTM (0, (listArray (0,0) [(\ps -> do return ps)])) [initializeTape $ TapeSymbol 0],
                 Ready,
-                [], []) 
+                []) 
 
 
 liftCommandTM :: TuringMachine -> (ProgramState -> IO ProgramState)
 liftCommandTM (TuringMachine (i, cta) (ts)) = (cta!i)
 
 liftCommandState :: ProgramState -> (ProgramState -> IO ProgramState)
-liftCommandState (tm, _, _, _) = liftCommandTM tm
+liftCommandState (tm, _, _) = liftCommandTM tm
 
 
 
@@ -204,7 +202,7 @@ liftCommandState (tm, _, _, _) = liftCommandTM tm
     2. Run the command on the state machine
 -}
 transitionState :: ProgramState -> IO ProgramState
-transitionState ps@(_, Error, _, _) = do return ps
+transitionState ps@(_, Error, _) = do return ps
 -- need to do more error handling with the status
-transitionState (tm, status, ob, ib) = (liftCommandTM tm) (tm, Running, ob, ib)
+transitionState (tm, status,  ib) = (liftCommandTM tm) (tm, Running,  ib)
 

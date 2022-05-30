@@ -38,5 +38,5 @@ main =
 simulateProgram :: IO ProgramState -> IO ProgramState
 simulateProgram program = do program <- program
                              case program of
-                                 state@(_, Stopped, _, _) -> return state
+                                 state@(_, Stopped, _) -> return state
                                  state -> simulateProgram $ (liftCommandState state) state
