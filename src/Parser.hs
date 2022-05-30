@@ -9,8 +9,6 @@ import Data.Array
 import qualified Data.HashMap.Strict as H (HashMap, member, insert, lookup, empty, fromList, union, size)
 import qualified Data.Set as S (Set, member, fromList)
 
-import Debug.Trace
-
 tokenize :: String -> [TapeSymbol Char] 
 -- this doesn't check if valid tape symbol!!
 tokenize s = fmap (\c -> TapeSymbol c) $ filter (\v -> S.member v commandTokens) s
@@ -64,8 +62,8 @@ genCommandTape ss = genCommandTape' 0 ss [] [] []
 
         genCommandTape' i [] [] [] acc =
             let interList = zip [0..] $ reverse (End:acc)
-                interMap = trace (show interList) (fix (i) $ H.fromList $ interList)
-                tapeL = trace (show interMap) $ map mapper interMap
+                interMap =  (fix (i) $ H.fromList $ interList)
+                tapeL =  map mapper interMap
             in (0, listArray (0, i+1) tapeL)
             where fix (-1) ss = [let Just s = H.lookup i ss in s | i <- [0..((H.size ss) - 1)]]
                   fix i  ss = let Just sym = H.lookup i ss

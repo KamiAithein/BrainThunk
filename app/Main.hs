@@ -5,7 +5,6 @@ import Parser
 import Data.Char
 import System.Environment
 import System.IO
-import Debug.Trace
 
 run :: String -> IO ProgramState
 run code = 
